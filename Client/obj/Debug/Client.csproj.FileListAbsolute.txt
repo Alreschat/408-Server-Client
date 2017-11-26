@@ -1,0 +1,11 @@
+C:\Users\Alr\source\repos\Server\Client\bin\Debug\Client.exe.config
+C:\Users\Alr\source\repos\Server\Client\bin\Debug\Client.exe
+C:\Users\Alr\source\repos\Server\Client\bin\Debug\Client.pdb
+C:\Users\Alr\source\repos\Server\Client\bin\Debug\SimpleTCP.dll
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.Form1.resources
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.Properties.Resources.resources
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.csproj.GenerateResource.Cache
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.csproj.CoreCompileInputs.cache
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.exe
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.pdb
+C:\Users\Alr\source\repos\Server\Client\obj\Debug\Client.csprojResolveAssemblyReference.cache
