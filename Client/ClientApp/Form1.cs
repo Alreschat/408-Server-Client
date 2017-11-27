@@ -20,6 +20,9 @@ namespace ClientApp
         private Thread thrReceive;
         private bool terminating;
         private bool requestedList;
+        private bool requestedChallenge;
+        private bool playingGame;
+
 
         public Form1()
         {
@@ -28,6 +31,9 @@ namespace ClientApp
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            requestedList = false;
+            requestedChallenge = false;
+            playingGame = false;
         }
 
         private void btStart_Click(object sender, EventArgs e)
@@ -179,28 +185,6 @@ namespace ClientApp
                                             if (clientTcp.Client.Poll(1000, SelectMode.SelectRead))
                                             {
                                                 byteCount = networkStream.Read(bytesToRead, 0, clientTcp.ReceiveBufferSize);
-                                            }
-
-                                            if (byteCount <= 0)
-                                            {
-                                                throw new SocketException();
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            tbActivity.AppendText("Lost connection to server.", Color.Red);
-                                            terminating = true;
-                                        }
-
-                                        if (requestedList)
-                                        {
-                                            try
-                                            {
-                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("LS");
-                                                networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                tbActivity.AppendText("Successfully sent Lobby List request.", Color.Black);
-                                                
-                                                byteCount = networkStream.Read(bytesToRead, 0, clientTcp.ReceiveBufferSize);
 
                                                 if (byteCount <= 0)
                                                 {
@@ -211,9 +195,70 @@ namespace ClientApp
                                                 newmessage = newmessage.Substring(0, newmessage.IndexOf("\0")); //NUL is always the final character of the newest message
                                                 tbActivity.AppendText("Server: " + newmessage, Color.Black);
 
-                                                if (newmessage.Length > 2 && newmessage.Substring(0, 2) == "LS")
+                                                if (requestedChallenge == false && newmessage.Length > 2 && newmessage.Substring(0, 2) == "CH")
                                                 {
-                                                    //Split recieved string into names, refresh Client List with new names
+                                                    //Recieved challenge, display challenge window
+                                                    string challengerName = newmessage.Substring(2, newmessage.Length - 2);
+
+                                                    DialogResult dialogResult = MessageBox.Show(challengerName + " has challenged you. Would you like to accept?", "A new challenger!", MessageBoxButtons.YesNo);
+                                                    if (dialogResult == DialogResult.Yes)
+                                                    {
+                                                        //Accept challenge
+                                                        try
+                                                        {
+                                                            byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC");
+                                                            networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                            tbActivity.AppendText("Accepted challenge.", Color.Black);
+
+                                                            playingGame = true;
+                                                        }
+                                                        catch
+                                                        {
+                                                            tbActivity.AppendText("Failed to accept challenge.", Color.Red);
+                                                            terminating = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        //Decline challenge
+                                                        try
+                                                        {
+                                                            byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE");
+                                                            networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                            tbActivity.AppendText("Declined challenge.", Color.Black);
+                                                        }
+                                                        catch
+                                                        {
+                                                            tbActivity.AppendText("Failed to decline challenge.", Color.Red);
+                                                            terminating = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+
+                                                if (requestedChallenge == true && newmessage.Length > 2 && newmessage.Substring(0, 2) == "CH")
+                                                {
+                                                    //Recieved challenge, but had already requested challenge
+                                                    tbActivity.AppendText("Recieved challenge, but had already requested challenge.", Color.Black);
+                                                    //Decline challenge
+                                                    try
+                                                    {
+                                                        byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE");
+                                                        networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                        tbActivity.AppendText("Automatically declined challenge.", Color.Black);
+                                                    }
+                                                    catch
+                                                    {
+                                                        tbActivity.AppendText("Failed to automatically decline challenge.", Color.Red);
+                                                        terminating = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                else if (requestedList == true && newmessage.Length > 2 && newmessage.Substring(0, 2) == "LS")
+                                                {
+                                                    //Recieved the list; split it into names, refresh Lobby List with new names
                                                     string theList = newmessage.Substring(2, newmessage.Length - 2);
                                                     char[] delimiterChars = { '\n' };
                                                     string[] splitList = theList.Split(delimiterChars);
@@ -230,9 +275,29 @@ namespace ClientApp
                                                             listClients.Items.Add(s);
                                                         });
                                                     }
-                                                }
 
-                                            requestedList = false;
+                                                    requestedList = false;
+
+                                                    btRequest.BeginInvoke((MethodInvoker)delegate ()
+                                                    {
+                                                        btRequest.Enabled = true;
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            tbActivity.AppendText("Lost connection to server.", Color.Red);
+                                            terminating = true;
+                                        }
+
+                                        if (requestedList == true && terminating == false)
+                                        {
+                                            try
+                                            {
+                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("LS");
+                                                networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                tbActivity.AppendText("Successfully sent Lobby List request.", Color.Black);
                                             }
                                             catch
                                             {
@@ -313,7 +378,12 @@ namespace ClientApp
 
         private void btRequest_Click(object sender, EventArgs e)
         {
-                requestedList = true; //Set variable to true so that the "if(requestedList)" code block executes
+            btRequest.BeginInvoke((MethodInvoker)delegate ()
+            {
+                btRequest.Enabled = false;
+            });
+
+            requestedList = true; //Set variable to true so that the "if(requestedList)" code block executes
         }
     }
 }
