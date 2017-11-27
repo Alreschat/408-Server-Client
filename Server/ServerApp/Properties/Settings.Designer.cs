@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Server.Properties
+namespace WindowsFormsApp2.Properties
 {
 
 
