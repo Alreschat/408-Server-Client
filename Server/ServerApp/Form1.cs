@@ -18,9 +18,11 @@ namespace WindowsFormsApp2
         private bool btStart_Click_isStop = false; //Set to true if button is in "Stop" mode
         private int serverPort;
         private TcpListener tcpListener;
-        private OrderedDictionary clientDatabase = new OrderedDictionary(); //Stores pairs of Client Names and their corresponding Sockets; ordered so first Client added is at the top
+        private OrderedDictionary clientDatabase = new OrderedDictionary(); //Stores pairs of Client names and their corresponding TcpClients; ordered so first Client added is at the top
         private List<TcpClient> clientList = new List<TcpClient>();
-        private Object clientLock = new object(); //Lock to ensure only one thread accesses shared structures at any given time
+        private Object clientLock = new Object(); //Lock to ensure only one thread accesses shared structures at any given time
+        private HashSet<string> unavailableClients = new HashSet<string>();
+        private Dictionary<string, string> gameClientPairs = new Dictionary<string, string>(); //Stores pairs of 2 Client names for every ongoing game
 
         public Form1()
         {
@@ -58,7 +60,7 @@ namespace WindowsFormsApp2
                 }
                 catch
                 {
-                    tbActivity.AppendText("Cannot create a server with the specified IP/port number, check the port number and try again.", Color.Red);
+                    tbActivity.AppendText("Cannot create a server with the specified IP/port number, check their validity and try again.", Color.Red);
                     tbPort.ReadOnly = false;
                 }
             }
@@ -73,6 +75,7 @@ namespace WindowsFormsApp2
                     clientList[ctr].Close();
                 }
                 clientList.Clear();
+                clientDatabase.Clear();
 
                 accept = false;
 
@@ -120,11 +123,11 @@ namespace WindowsFormsApp2
             bool terminating = false;
             byte[] initial_BytesToRead = new byte[clientTcp.ReceiveBufferSize];
             string clientName = "";
-            
+
             try
             {
-                byte[] bytesToSend = ASCIIEncoding.ASCII.GetBytes("ID");
-                networkStream.Write(bytesToSend, 0, bytesToSend.Length);
+                byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("ID");
+                networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
             }
             catch
             {
@@ -170,8 +173,8 @@ namespace WindowsFormsApp2
 
                     try
                     {
-                        byte[] bytesToSend = ASCIIEncoding.ASCII.GetBytes("FM"); //Incorrect format code
-                        networkStream.Write(bytesToSend, 0, bytesToSend.Length);
+                        byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("FM"); //Incorrect format code
+                        networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                         tbActivity.AppendText("Successfully responded to incorrectly formatted identification.", Color.Purple);
                     }
                     catch
@@ -200,8 +203,8 @@ namespace WindowsFormsApp2
 
                         try
                         {
-                            byte[] bytesToSend = ASCIIEncoding.ASCII.GetBytes("UN"); //Non-unique name code
-                            networkStream.Write(bytesToSend, 0, bytesToSend.Length);
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("UN"); //Non-unique name code
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                             tbActivity.AppendText("Successfully responded to non-unique identification.", Color.Purple);
                         }
                         catch
@@ -215,8 +218,8 @@ namespace WindowsFormsApp2
                     {
                         try
                         {
-                            byte[] bytesToSend = ASCIIEncoding.ASCII.GetBytes("OK");
-                            networkStream.Write(bytesToSend, 0, bytesToSend.Length);
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("OK");
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                             tbActivity.AppendText("Successfully responded to unique identification.", Color.Black);
 
                             clientName = name_substring;
@@ -224,7 +227,7 @@ namespace WindowsFormsApp2
                             //Name is unique, add to list
                             lock (clientLock)
                             {
-                                clientDatabase.Add(clientName, clientTcp);
+                                clientDatabase.Add(clientName, networkStream);
 
                                 listClients.BeginInvoke((MethodInvoker)delegate ()
                                 {
@@ -246,7 +249,7 @@ namespace WindowsFormsApp2
             {
                 try
                 {
-                    Byte[] bytesToRead = new byte[clientTcp.ReceiveBufferSize];
+                    byte[] bytesToRead = new byte[clientTcp.ReceiveBufferSize];
                     int byteCount = networkStream.Read(bytesToRead, 0, clientTcp.ReceiveBufferSize);
 
                     if (byteCount <= 0)
@@ -255,8 +258,9 @@ namespace WindowsFormsApp2
                     }
 
                     string newmessage = Encoding.ASCII.GetString(bytesToRead);
-                    newmessage = newmessage.Substring(0, byteCount);
+                    newmessage = newmessage.Substring(0, newmessage.IndexOf("\0"));
                     tbActivity.AppendText("\"" + clientName + "\": " + newmessage, Color.Black);
+
                     if (newmessage == "LS") //List request code
                     {
                         //Client requested Lobby List
@@ -280,10 +284,10 @@ namespace WindowsFormsApp2
                                 int listSize = clientNames.Length;
                                 for (int ctr = 1; ctr < listSize; ctr++)
                                 {
-                                        textList = textList + "\n" + clientNames[ctr]; //Seperate names using newline as it cannot be a character in a client's name
+                                    textList = textList + "\n" + clientNames[ctr]; //Seperate names using newline as it cannot be a character in a client's name
                                 }
                                 textList = textList + "\0"; //NUL is always the final character of the newest message
-                                ////tbActivity.AppendText("List: " + textList, Color.YellowGreen);
+                                                            ////tbActivity.AppendText("List: " + textList, Color.YellowGreen);
                             }
 
                             byte[] bufferList = ASCIIEncoding.ASCII.GetBytes(textList);
@@ -297,6 +301,139 @@ namespace WindowsFormsApp2
                             terminating = true;
                         }
                     }
+                    else if (newmessage.Length > 2)
+                    {
+                        if (newmessage.Substring(0, 2) == "CH")
+                        {
+                            unavailableClients.Add(clientName);
+
+                            string challenged_Name = newmessage.Substring(2);
+
+                            if (unavailableClients.Contains(challenged_Name)) //Challenged client is unavailable
+                            {
+                                byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + challenged_Name + "\0");
+                                try
+                                {
+                                    networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                    tbActivity.AppendText($"Client \"{challenged_Name}\" currently unavailable, automatically declined \"{clientName}\"'s challenge.", Color.Black);
+
+                                    unavailableClients.Remove(clientName);
+                                }
+                                catch
+                                {
+                                    tbActivity.AppendText("Client \"" + clientName + "\" disconnected before challenge could be automatically declined.", Color.Purple);
+                                    terminating = true;
+                                }
+                            }
+                            else //Challenged client is available
+                            {
+                                unavailableClients.Add(challenged_Name);
+
+                                byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("CH" + clientName + "\0");
+                                NetworkStream challenged_networkStream = (NetworkStream)clientDatabase[challenged_Name];
+                                try
+                                {
+                                    challenged_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                    tbActivity.AppendText($"Sent challenge from \"{clientName}\" to \"{challenged_Name}\".", Color.Black);
+                                }
+                                catch
+                                {
+                                    tbActivity.AppendText($"Failed to send challenge from \"{clientName}\" to \"{challenged_Name}\".", Color.Purple);
+
+                                    bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + challenged_Name + "\0");
+                                    try
+                                    {
+                                        networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                        tbActivity.AppendText($"Client \"{challenged_Name}\" currently unavailable, automatically declined {clientName}'s challenge.", Color.Black);
+                                    }
+                                    catch
+                                    {
+                                        tbActivity.AppendText("Client \"" + clientName + "\" disconnected before challenge could be automatically declined.", Color.Purple);
+                                        terminating = true;
+                                    }
+
+                                    unavailableClients.Remove(clientName);
+                                    unavailableClients.Remove(challenged_Name);
+                                }
+                            }
+                        }
+                        else if (newmessage.Substring(0, 2) == "AC")
+                        {
+                            string accepted_Name = newmessage.Substring(2);
+
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC" + clientName + "\0");
+                            NetworkStream accepted_networkStream = (NetworkStream)clientDatabase[accepted_Name];
+                            try
+                            {
+                                accepted_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                tbActivity.AppendText($"Accepted challenge from \"{accepted_Name}\" to \"{clientName}\".", Color.Black);
+
+                                gameClientPairs.Add(accepted_Name, clientName);
+                            }
+                            catch
+                            {
+                                tbActivity.AppendText($"Failed to accept challenge from \"{accepted_Name}\" to \"{clientName}\".", Color.Purple);
+
+                                bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMch\0");
+                                try
+                                {
+                                    networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                    tbActivity.AppendText($"Client \"{accepted_Name}\" disconnected after sending invite, sent notice to \"{clientName}\".", Color.Black);
+                                }
+                                catch
+                                {
+                                    tbActivity.AppendText($"Client \"{accepted_Name}\" disconnected after sending invite, failed to send notice to \"{clientName}\".", Color.Purple);
+                                    terminating = true;
+                                }
+
+                                unavailableClients.Remove(clientName);
+                                unavailableClients.Remove(accepted_Name);
+                            }
+                        }
+                        else if (newmessage.Substring(0, 2) == "DE")
+                        {
+                            unavailableClients.Remove(clientName);
+
+                            string declined_Name = newmessage.Substring(2);
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + clientName + "\0");
+                            NetworkStream declined_networkStream = (NetworkStream)clientDatabase[declined_Name];
+                            try
+                            {
+                                declined_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                tbActivity.AppendText($"Declined challenge from \"{declined_Name}\" to \"{clientName}\".", Color.Black);
+                            }
+                            catch
+                            {
+                                tbActivity.AppendText($"Failed to decline challenge from \"{declined_Name}\" to \"{clientName}\".", Color.Purple);
+                            }
+
+                            unavailableClients.Remove(declined_Name);
+                        }
+                        else if (newmessage.Substring(0, 2) == "GM")
+                        {
+                            if (newmessage.Length > 4 && newmessage.Substring(2, 2) == "ed")
+                            {
+                                string winner_Name = newmessage.Substring(4);
+
+                                byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMed\0");
+                                NetworkStream winner_networkStream = (NetworkStream)clientDatabase[winner_Name];
+                                try
+                                {
+                                    winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                    tbActivity.AppendText($"\"{clientName}\" has surrendered, \"{winner_Name}\" is the winner!", Color.Black);
+                                }
+                                catch
+                                {
+                                    tbActivity.AppendText($"\"{clientName}\" has surrendered, but failed to notify \"{winner_Name}\" that they won.", Color.Purple);
+                                }
+
+                                removeFrom_clientListPairs(clientName);
+
+                                unavailableClients.Remove(clientName);
+                                unavailableClients.Remove(winner_Name);
+                            }
+                        }
+                    }
                 }
                 catch
                 {
@@ -305,8 +442,17 @@ namespace WindowsFormsApp2
                 }
             }
 
+            tbActivity.AppendText("Closing connection with client \"" + clientName + "\".", Color.Black);
+
+            //Post-disconnect cleanup
             lock (clientLock)
             {
+                /*var itemsToRemove = clientDatabase.Where(kvp => kvp.Key.Equals(clientName));
+                foreach (var item in itemsToRemove)
+                { 
+                    NetworkStream val = item.Value;
+                    clientDatabase.TryRemove(clientName, out val);
+                }*/
                 clientDatabase.Remove(clientName);
 
                 listClients.BeginInvoke((MethodInvoker)delegate ()
@@ -315,9 +461,72 @@ namespace WindowsFormsApp2
                 });
             }
 
-            //Close client connection
-            clientTcp.Close();
+            removeFrom_clientListPairs_DC(clientName);
+
+            unavailableClients.Remove(clientName);
+
             clientList.Remove(clientTcp);
+            
+            clientTcp.Close();
+        }
+
+
+        private void removeFrom_clientListPairs(string clientName)
+        {
+            if (gameClientPairs.ContainsKey(clientName))
+            {
+                gameClientPairs.Remove(clientName);
+            }
+            else if (gameClientPairs.ContainsValue(clientName))
+            {
+                foreach (var clientItem in gameClientPairs.Where(kvp => kvp.Value == clientName).Take(1).ToList())
+                {
+                    gameClientPairs.Remove(clientItem.Key);
+                }
+            }
+        }
+
+        private void removeFrom_clientListPairs_DC(string clientName)
+        {
+            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMdc\0");
+            
+            if (gameClientPairs.ContainsKey(clientName))
+            {
+                string winner_Name = gameClientPairs[clientName];
+                NetworkStream winner_networkStream = (NetworkStream)clientDatabase[winner_Name];
+                try
+                {
+                    winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                    tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
+                }
+                catch
+                {
+                    tbActivity.AppendText($"\"{clientName}\" has disconnected, but failed to notify \"{winner_Name}\" that they won.", Color.Purple);
+                }
+
+                gameClientPairs.Remove(clientName);
+                unavailableClients.Remove(winner_Name);
+            }
+            else if (gameClientPairs.ContainsValue(clientName))
+            {
+                foreach (var clientItem in gameClientPairs.Where(kvp => kvp.Value == clientName).Take(1).ToList())
+                {
+                    string winner_Name = clientItem.Key;
+                    NetworkStream winner_networkStream = (NetworkStream)clientDatabase[winner_Name];
+                    try
+                    {
+                        winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                        tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
+                    }
+                    catch
+                    {
+                        tbActivity.AppendText($"\"{clientName}\" has disconnected, but failed to notify \"{winner_Name}\" that they won.", Color.Purple);
+                    }
+
+                    gameClientPairs.Remove(winner_Name);
+                    unavailableClients.Remove(winner_Name);
+                }
+            }
         }
     }
 }

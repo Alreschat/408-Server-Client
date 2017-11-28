@@ -40,6 +40,7 @@
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
             this.listClients = new System.Windows.Forms.ListBox();
+            this.challenge = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // tbActivity
@@ -116,11 +117,11 @@
             // btRequest
             // 
             this.btRequest.Enabled = false;
-            this.btRequest.Location = new System.Drawing.Point(92, 328);
+            this.btRequest.Location = new System.Drawing.Point(33, 331);
             this.btRequest.Name = "btRequest";
             this.btRequest.Size = new System.Drawing.Size(79, 24);
             this.btRequest.TabIndex = 9;
-            this.btRequest.Text = "Request";
+            this.btRequest.Text = "Get List";
             this.btRequest.UseVisualStyleBackColor = true;
             this.btRequest.Click += new System.EventHandler(this.btRequest_Click);
             // 
@@ -149,12 +150,25 @@
             this.listClients.Name = "listClients";
             this.listClients.Size = new System.Drawing.Size(233, 199);
             this.listClients.TabIndex = 16;
+            this.listClients.SelectedIndexChanged += new System.EventHandler(this.listClients_SelectedIndexChanged);
+            // 
+            // challenge
+            // 
+            this.challenge.Enabled = false;
+            this.challenge.Location = new System.Drawing.Point(153, 331);
+            this.challenge.Name = "challenge";
+            this.challenge.Size = new System.Drawing.Size(79, 24);
+            this.challenge.TabIndex = 17;
+            this.challenge.Text = "Challenge";
+            this.challenge.UseVisualStyleBackColor = true;
+            this.challenge.Click += new System.EventHandler(this.challenge_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(664, 374);
+            this.Controls.Add(this.challenge);
             this.Controls.Add(this.listClients);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
@@ -191,6 +205,7 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.ListBox listClients;
+        private System.Windows.Forms.Button challenge;
     }
 }
 

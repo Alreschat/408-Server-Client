@@ -19,9 +19,13 @@ namespace ClientApp
         private NetworkStream networkStream;
         private Thread thrReceive;
         private bool terminating;
+        private bool clickedList;
         private bool requestedList;
+        private bool clickedChallenge;
         private bool requestedChallenge;
         private bool playingGame;
+        private string playingAgainst;
+        private int listClients_selectedIndex;
 
 
         public Form1()
@@ -31,9 +35,12 @@ namespace ClientApp
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            clickedList = false;
             requestedList = false;
+            clickedChallenge = false;
             requestedChallenge = false;
             playingGame = false;
+            listClients_selectedIndex = -1;
         }
 
         private void btStart_Click(object sender, EventArgs e)
@@ -136,14 +143,14 @@ namespace ClientApp
                     }
 
                     string newmessage = Encoding.ASCII.GetString(bytesToRead, 0, byteCount);
-                    tbActivity.AppendText("Server: " + newmessage, Color.Black);
+                    tbActivity.AppendText("Server: " + newmessage, Color.YellowGreen);
                     if (newmessage == "ID")
                     {
                         try
                         {
                             clientName = tbClient.Text;
-                            byte[] id_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("ID" + clientName);
-                            networkStream.Write(id_bytesToWrite, 0, id_bytesToWrite.Length);
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("ID" + clientName);
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                             tbActivity.AppendText("Successfully sent identification.", Color.Black);
 
                             try
@@ -157,7 +164,7 @@ namespace ClientApp
 
                                 newmessage = Encoding.ASCII.GetString(bytesToRead);
                                 newmessage = newmessage.Substring(0, newmessage.IndexOf("\0")); //NUL is always the final character of the newest message
-                                tbActivity.AppendText("Server: " + newmessage, Color.Black);
+                                tbActivity.AppendText("Server: " + newmessage, Color.YellowGreen);
 
                                 if (newmessage == "FM")
                                 {
@@ -180,6 +187,88 @@ namespace ClientApp
 
                                     while (!terminating)
                                     {
+                                        if (clickedList == true && terminating == false)
+                                        {
+                                            try
+                                            {
+                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("LS");
+                                                networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                requestedList = true;
+                                                tbActivity.AppendText("Successfully sent Lobby List request.", Color.Black);
+                                            }
+                                            catch
+                                            {
+                                                tbActivity.AppendText("Failed to send Lobby List request.", Color.Red);
+                                                terminating = true;
+                                                break;
+                                            }
+
+                                            clickedList = false;
+                                        }
+
+                                        if (clickedChallenge == true && terminating == false)
+                                        {
+                                            clickedChallenge = false;
+
+                                            if (playingGame == false)
+                                            {
+                                                string name = "";
+                                                if (listClients_selectedIndex >= 0)
+                                                {
+                                                    name = listClients.Items[listClients_selectedIndex].ToString();
+                                                }
+                                                if (name != "" && name != clientName)
+                                                {
+                                                    try
+                                                    {
+                                                        byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes($"CH{name}\0");
+                                                        networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                        tbActivity.AppendText($"Successfully sent challenge to player {name}.", Color.Black);
+
+                                                        requestedChallenge = true;
+                                                    }
+                                                    catch
+                                                    {
+                                                        tbActivity.AppendText("Failed to send challenge request.", Color.Red);
+                                                        terminating = true;
+
+                                                        challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            challenge.Enabled = true;
+                                                        });
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                    {
+                                                        challenge.Enabled = true;
+                                                    });
+                                                }
+                                            }
+                                            else
+                                            {
+                                                try
+                                                {
+                                                    byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMed" + playingAgainst + "\0");
+                                                    networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                    tbActivity.AppendText("Sent surrender message, opponent \"" + playingAgainst + "\" has won the game!", Color.Black);
+                                                }
+                                                catch
+                                                {
+                                                    tbActivity.AppendText("Failed to send surrender message.", Color.Red);
+                                                    terminating = true;
+                                                }
+                                                
+                                                playingGame = false;
+                                                challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    challenge.Text = "Challenge";
+                                                    challenge.Enabled = true;
+                                                });
+                                            }
+                                        }
+
                                         try
                                         {
                                             if (clientTcp.Client.Poll(1000, SelectMode.SelectRead))
@@ -193,95 +282,176 @@ namespace ClientApp
 
                                                 newmessage = Encoding.ASCII.GetString(bytesToRead);
                                                 newmessage = newmessage.Substring(0, newmessage.IndexOf("\0")); //NUL is always the final character of the newest message
-                                                tbActivity.AppendText("Server: " + newmessage, Color.Black);
+                                                tbActivity.AppendText("Server: " + newmessage, Color.YellowGreen);
 
-                                                if (requestedChallenge == false && newmessage.Length > 2 && newmessage.Substring(0, 2) == "CH")
+                                                if (newmessage.Length > 2)
                                                 {
-                                                    //Recieved challenge, display challenge window
-                                                    string challengerName = newmessage.Substring(2, newmessage.Length - 2);
-
-                                                    DialogResult dialogResult = MessageBox.Show(challengerName + " has challenged you. Would you like to accept?", "A new challenger!", MessageBoxButtons.YesNo);
-                                                    if (dialogResult == DialogResult.Yes)
+                                                    if (requestedChallenge == false && newmessage.Substring(0, 2) == "CH")
                                                     {
-                                                        //Accept challenge
-                                                        try
-                                                        {
-                                                            byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC");
-                                                            networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                            tbActivity.AppendText("Accepted challenge.", Color.Black);
+                                                        //Recieved challenge, display challenge window
+                                                        string challengerName = newmessage.Substring(2);
 
+                                                        DialogResult dialogResult = MessageBox.Show(challengerName + " has challenged you. Would you like to accept?", "A new challenger!", MessageBoxButtons.YesNo);
+                                                        if (dialogResult == DialogResult.Yes)
+                                                        {
+                                                            //Accept challenge
+                                                            try
+                                                            {
+                                                                bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC" + challengerName + "\0");
+                                                                networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                                                tbActivity.AppendText("Accepted challenge.", Color.Black);
+
+                                                                playingAgainst = challengerName;
+                                                                playingGame = true;
+                                                                challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    challenge.Text = "Surrender";
+                                                                });
+                                                            }
+                                                            catch
+                                                            {
+                                                                tbActivity.AppendText("Failed to accept challenge.", Color.Red);
+                                                                terminating = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            //Decline challenge
+                                                            try
+                                                            {
+                                                                bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + challengerName + "\0");
+                                                                networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                                                tbActivity.AppendText("Declined challenge.", Color.Black);
+                                                            }
+                                                            catch
+                                                            {
+                                                                tbActivity.AppendText("Failed to decline challenge.", Color.Red);
+                                                                terminating = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    else if (requestedChallenge == true)
+                                                    {
+                                                        if (newmessage.Substring(0, 2) == "AC")
+                                                        {
+                                                            string challengedName = newmessage.Substring(2);
+
+                                                            //Other client accepted the sent challenge
+                                                            tbActivity.AppendText(challengedName + " accepted the challenge.", Color.Black);
+
+                                                            requestedChallenge = false;
+                                                            playingAgainst = challengedName;
                                                             playingGame = true;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Text = "Surrender";
+                                                                challenge.Enabled = true;
+                                                            });
                                                         }
-                                                        catch
+
+                                                        else if (newmessage.Substring(0, 2) == "DE")
                                                         {
-                                                            tbActivity.AppendText("Failed to accept challenge.", Color.Red);
-                                                            terminating = true;
-                                                            break;
+                                                            string challengedName = newmessage.Substring(2);
+
+                                                            //Other client declined the sent challenge
+                                                            tbActivity.AppendText(challengedName + " declined the challenge.", Color.Black);
+
+                                                            requestedChallenge = false;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Enabled = true;
+                                                            });
                                                         }
-                                                    }
-                                                    else
-                                                    {
-                                                        //Decline challenge
-                                                        try
+
+                                                        else if (newmessage.Substring(0, 2) == "CH")
                                                         {
-                                                            byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE");
-                                                            networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                            tbActivity.AppendText("Declined challenge.", Color.Black);
+                                                            //Recieved challenge, but had already requested challenge
+                                                            tbActivity.AppendText("Recieved challenge, but had already requested challenge.", Color.Black);
+                                                            //Decline challenge
+                                                            string challengerName = newmessage.Substring(2);
+                                                            try
+                                                            {
+                                                                bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + challengerName + "\0");
+                                                                networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                                                tbActivity.AppendText("Automatically declined challenge.", Color.Black);
+                                                            }
+                                                            catch
+                                                            {
+                                                                tbActivity.AppendText("Failed to automatically decline challenge.", Color.Red);
+                                                                terminating = true;
+                                                                break;
+                                                            }
                                                         }
-                                                        catch
-                                                        {
-                                                            tbActivity.AppendText("Failed to decline challenge.", Color.Red);
-                                                            terminating = true;
-                                                            break;
-                                                        }
                                                     }
-                                                }
-
-                                                if (requestedChallenge == true && newmessage.Length > 2 && newmessage.Substring(0, 2) == "CH")
-                                                {
-                                                    //Recieved challenge, but had already requested challenge
-                                                    tbActivity.AppendText("Recieved challenge, but had already requested challenge.", Color.Black);
-                                                    //Decline challenge
-                                                    try
+                                                    else if (requestedList == true && newmessage.Substring(0, 2) == "LS")
                                                     {
-                                                        byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE");
-                                                        networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                        tbActivity.AppendText("Automatically declined challenge.", Color.Black);
-                                                    }
-                                                    catch
-                                                    {
-                                                        tbActivity.AppendText("Failed to automatically decline challenge.", Color.Red);
-                                                        terminating = true;
-                                                        break;
-                                                    }
-                                                }
+                                                        //Recieved the list; split it into names, refresh Lobby List with new names
+                                                        string theList = newmessage.Substring(2, newmessage.Length - 2);
+                                                        char[] delimiterChars = { '\n' };
+                                                        string[] splitList = theList.Split(delimiterChars);
 
-                                                else if (requestedList == true && newmessage.Length > 2 && newmessage.Substring(0, 2) == "LS")
-                                                {
-                                                    //Recieved the list; split it into names, refresh Lobby List with new names
-                                                    string theList = newmessage.Substring(2, newmessage.Length - 2);
-                                                    char[] delimiterChars = { '\n' };
-                                                    string[] splitList = theList.Split(delimiterChars);
-
-                                                    listClients.BeginInvoke((MethodInvoker)delegate ()
-                                                    {
-                                                        listClients.Items.Clear();
-                                                    });
-
-                                                    foreach (string s in splitList)
-                                                    {
                                                         listClients.BeginInvoke((MethodInvoker)delegate ()
                                                         {
-                                                            listClients.Items.Add(s);
+                                                            listClients.Items.Clear();
+                                                        });
+
+                                                        foreach (string s in splitList)
+                                                        {
+                                                            listClients.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                listClients.Items.Add(s);
+                                                            });
+                                                        }
+
+                                                        requestedList = false;
+
+                                                        btRequest.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            btRequest.Enabled = true;
+                                                        });
+                                                        challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            challenge.Enabled = true;
                                                         });
                                                     }
-
-                                                    requestedList = false;
-
-                                                    btRequest.BeginInvoke((MethodInvoker)delegate ()
+                                                    else if (playingGame == true && newmessage.Substring(0, 2) == "GM")
                                                     {
-                                                        btRequest.Enabled = true;
-                                                    });
+                                                        if (newmessage == "GMed")
+                                                        {
+                                                            //Opponent surrendered
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" has surrendered, you have won the game!", Color.Black);
+
+                                                            playingGame = false;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Text = "Challenge";
+                                                            });
+                                                        }
+                                                        else if (newmessage == "GMdc")
+                                                        {
+                                                            //Opponent disconnected during game
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" disconnected, you have won the game!.", Color.Black);
+
+                                                            playingGame = false;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Text = "Challenge";
+                                                            });
+                                                        }
+                                                        else if (newmessage == "GMch")
+                                                        {
+                                                            //Opponent disconnected after sending challenge
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" disconnected after sending the challenge.", Color.Black);
+
+                                                            playingGame = false;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Text = "Challenge";
+                                                            });
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -289,22 +459,6 @@ namespace ClientApp
                                         {
                                             tbActivity.AppendText("Lost connection to server.", Color.Red);
                                             terminating = true;
-                                        }
-
-                                        if (requestedList == true && terminating == false)
-                                        {
-                                            try
-                                            {
-                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("LS");
-                                                networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                tbActivity.AppendText("Successfully sent Lobby List request.", Color.Black);
-                                            }
-                                            catch
-                                            {
-                                                tbActivity.AppendText("Failed to send Lobby List request.", Color.Red);
-                                                terminating = true;
-                                                break;
-                                            }
                                         }
                                     }
                                 }
@@ -340,14 +494,23 @@ namespace ClientApp
             }
 
             tbActivity.AppendText("Disconnecting...", Color.Black);
-            
+
             //Post-disconnect cleanup
+            challenge.BeginInvoke((MethodInvoker)delegate ()
+            {
+                challenge.Text = "Challenge";
+                challenge.Enabled = false;
+            });
             btRequest.BeginInvoke((MethodInvoker)delegate ()
             {
                 btRequest.Enabled = false;
             });
 
+            playingGame = false;
+            clickedList = false;
             requestedList = false;
+            clickedChallenge = false;
+            requestedChallenge = false;
 
             clientTcp.Close();
 
@@ -378,12 +541,21 @@ namespace ClientApp
 
         private void btRequest_Click(object sender, EventArgs e)
         {
-            btRequest.BeginInvoke((MethodInvoker)delegate ()
-            {
-                btRequest.Enabled = false;
-            });
+            btRequest.Enabled = false;
 
-            requestedList = true; //Set variable to true so that the "if(requestedList)" code block executes
+            clickedList = true; //Set variable to true so that the "if(clickedList)" code block executes
+        }
+
+        private void challenge_Click(object sender, EventArgs e)
+        {
+            challenge.Enabled = false;
+
+            clickedChallenge = true; //Set variable to true so that the "if(clickedChallenge)" code block executes
+        }
+
+        private void listClients_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            listClients_selectedIndex = listClients.SelectedIndex;
         }
     }
 }
