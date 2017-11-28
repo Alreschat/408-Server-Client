@@ -213,7 +213,7 @@ namespace ClientApp
                                             if (playingGame == false)
                                             {
                                                 string name = "";
-                                                if (listClients_selectedIndex >= 0)
+                                                if (listClients_selectedIndex >= 0 && listClients_selectedIndex < listClients.Items.Count)
                                                 {
                                                     name = listClients.Items[listClients_selectedIndex].ToString();
                                                 }
@@ -223,7 +223,7 @@ namespace ClientApp
                                                     {
                                                         byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes($"CH{name}\0");
                                                         networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                        tbActivity.AppendText($"Successfully sent challenge to player {name}.", Color.Black);
+                                                        tbActivity.AppendText($"Successfully sent challenge request.", Color.Black);
 
                                                         requestedChallenge = true;
                                                     }
@@ -291,7 +291,35 @@ namespace ClientApp
                                                         //Recieved challenge, display challenge window
                                                         string challengerName = newmessage.Substring(2);
 
+                                                        //DISABLE BUTTONS WHILE MESSAGE BOX IS OPEN
+                                                        btStart.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            btStart.Enabled = false;
+                                                        });
+                                                        challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            challenge.Enabled = false;
+                                                        });
+                                                        btRequest.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            btRequest.Enabled = false;
+                                                        });
+                                                        //////////////////////////////////////////
                                                         DialogResult dialogResult = MessageBox.Show(challengerName + " has challenged you. Would you like to accept?", "A new challenger!", MessageBoxButtons.YesNo);
+                                                        //ENABLE BUTTONS AFTER CLOSING MESSAGE BOX
+                                                        btRequest.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            btRequest.Enabled = true;
+                                                        });
+                                                        challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            challenge.Enabled = true;
+                                                        });
+                                                        btStart.BeginInvoke((MethodInvoker)delegate ()
+                                                        {
+                                                            btStart.Enabled = true;
+                                                        });
+                                                        //////////////////////////////////////////
                                                         if (dialogResult == DialogResult.Yes)
                                                         {
                                                             //Accept challenge
@@ -365,6 +393,20 @@ namespace ClientApp
                                                             });
                                                         }
 
+                                                        else if (newmessage.Substring(0, 2) == "DX")
+                                                        {
+                                                            string challengedName = newmessage.Substring(2);
+                                                            //Selected client is no longer connected to server, they disconnected after last time Lobby List was requested
+                                                            tbActivity.AppendText("Client \"" + challengedName + "\" is no longer connected to server, refreshing Lobby List.", Color.Black);
+
+                                                            clickedList = true; //Programatically "click" Lobby List button to refresh
+                                                            requestedChallenge = false;
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Enabled = true;
+                                                            });
+                                                        }
+
                                                         else if (newmessage.Substring(0, 2) == "CH")
                                                         {
                                                             //Recieved challenge, but had already requested challenge
@@ -385,7 +427,7 @@ namespace ClientApp
                                                             }
                                                         }
                                                     }
-                                                    else if (requestedList == true && newmessage.Substring(0, 2) == "LS")
+                                                    if (requestedList == true && newmessage.Substring(0, 2) == "LS")
                                                     {
                                                         //Recieved the list; split it into names, refresh Lobby List with new names
                                                         string theList = newmessage.Substring(2, newmessage.Length - 2);
@@ -396,6 +438,8 @@ namespace ClientApp
                                                         {
                                                             listClients.Items.Clear();
                                                         });
+
+                                                        listClients_selectedIndex = -1; //Reset selected index to match deselection in UI
 
                                                         foreach (string s in splitList)
                                                         {
@@ -411,12 +455,15 @@ namespace ClientApp
                                                         {
                                                             btRequest.Enabled = true;
                                                         });
-                                                        challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                        if (requestedChallenge == false)
                                                         {
-                                                            challenge.Enabled = true;
-                                                        });
+                                                            challenge.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                challenge.Enabled = true;
+                                                            });
+                                                        }
                                                     }
-                                                    else if (playingGame == true && newmessage.Substring(0, 2) == "GM")
+                                                    if (playingGame == true && newmessage.Substring(0, 2) == "GM")
                                                     {
                                                         if (newmessage == "GMed")
                                                         {

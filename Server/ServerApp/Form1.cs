@@ -309,7 +309,7 @@ namespace WindowsFormsApp2
 
                             string challenged_Name = newmessage.Substring(2);
 
-                            if (unavailableClients.Contains(challenged_Name)) //Challenged client is unavailable
+                            if (unavailableClients.Contains(challenged_Name)) //Challenged client is unavailable/busy
                             {
                                 byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + challenged_Name + "\0");
                                 try
@@ -322,6 +322,22 @@ namespace WindowsFormsApp2
                                 catch
                                 {
                                     tbActivity.AppendText("Client \"" + clientName + "\" disconnected before challenge could be automatically declined.", Color.Purple);
+                                    terminating = true;
+                                }
+                            }
+                            else if(!clientDatabase.Contains(challenged_Name)) //Challenged client is no longer connected to server
+                            {
+                                byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DX" + challenged_Name + "\0");
+                                try
+                                {
+                                    networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                                    tbActivity.AppendText($"Client \"{challenged_Name}\" does not exist, notified \"{clientName}\".", Color.Black);
+
+                                    unavailableClients.Remove(clientName);
+                                }
+                                catch
+                                {
+                                    tbActivity.AppendText($"Client \"{challenged_Name}\" does not exist, failed to notify \"{clientName}\".", Color.Purple);
                                     terminating = true;
                                 }
                             }
@@ -441,9 +457,6 @@ namespace WindowsFormsApp2
                     terminating = true;
                 }
             }
-
-            tbActivity.AppendText("Closing connection with client \"" + clientName + "\".", Color.Black);
-
             //Post-disconnect cleanup
             lock (clientLock)
             {
