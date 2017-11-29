@@ -23,6 +23,7 @@ namespace WindowsFormsApp2
         private Object clientLock = new Object(); //Lock to ensure only one thread accesses shared structures at any given time
         private HashSet<string> unavailableClients = new HashSet<string>();
         private Dictionary<string, string> gameClientPairs = new Dictionary<string, string>(); //Stores pairs of 2 Client names for every ongoing game
+        private Dictionary<string, string> recievedChallenge = new Dictionary<string, string>(); //Stores clients who have recieved a challenge but not yet answered, notify challenger if they disconnect
 
         public Form1()
         {
@@ -331,13 +332,13 @@ namespace WindowsFormsApp2
                                 try
                                 {
                                     networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
-                                    tbActivity.AppendText($"Client \"{challenged_Name}\" does not exist, notified \"{clientName}\".", Color.Black);
+                                    tbActivity.AppendText($"Client \"{challenged_Name}\" is no longer connected, notified \"{clientName}\".", Color.Black);
 
                                     unavailableClients.Remove(clientName);
                                 }
                                 catch
                                 {
-                                    tbActivity.AppendText($"Client \"{challenged_Name}\" does not exist, failed to notify \"{clientName}\".", Color.Purple);
+                                    tbActivity.AppendText($"Client \"{challenged_Name}\" is no longer connected, failed to notify \"{clientName}\".", Color.Purple);
                                     terminating = true;
                                 }
                             }
@@ -351,6 +352,8 @@ namespace WindowsFormsApp2
                                 {
                                     challenged_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                                     tbActivity.AppendText($"Sent challenge from \"{clientName}\" to \"{challenged_Name}\".", Color.Black);
+
+                                    recievedChallenge.Add(challenged_Name, clientName);
                                 }
                                 catch
                                 {
@@ -373,9 +376,10 @@ namespace WindowsFormsApp2
                                 }
                             }
                         }
-                        else if (newmessage.Substring(0, 2) == "AC")
+                        else if (newmessage.Substring(0, 2) == "AC") //Client accepted challenge
                         {
                             string accepted_Name = newmessage.Substring(2);
+                            recievedChallenge.Remove(accepted_Name);
 
                             byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC" + clientName + "\0");
                             NetworkStream accepted_networkStream = (NetworkStream)clientDatabase[accepted_Name];
@@ -383,7 +387,7 @@ namespace WindowsFormsApp2
                             {
                                 accepted_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                                 tbActivity.AppendText($"Accepted challenge from \"{accepted_Name}\" to \"{clientName}\".", Color.Black);
-
+                                
                                 gameClientPairs.Add(accepted_Name, clientName);
                             }
                             catch
@@ -401,16 +405,18 @@ namespace WindowsFormsApp2
                                     tbActivity.AppendText($"Client \"{accepted_Name}\" disconnected after sending invite, failed to send notice to \"{clientName}\".", Color.Purple);
                                     terminating = true;
                                 }
-
+                                
                                 unavailableClients.Remove(clientName);
                                 unavailableClients.Remove(accepted_Name);
                             }
                         }
-                        else if (newmessage.Substring(0, 2) == "DE")
+                        else if (newmessage.Substring(0, 2) == "DE") //Client declined challenge
                         {
                             unavailableClients.Remove(clientName);
 
                             string declined_Name = newmessage.Substring(2);
+                            recievedChallenge.Remove(declined_Name);
+
                             byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + clientName + "\0");
                             NetworkStream declined_networkStream = (NetworkStream)clientDatabase[declined_Name];
                             try
@@ -427,7 +433,7 @@ namespace WindowsFormsApp2
                         }
                         else if (newmessage.Substring(0, 2) == "GM")
                         {
-                            if (newmessage.Length > 4 && newmessage.Substring(2, 2) == "ed")
+                            if (newmessage.Length > 4 && newmessage.Substring(2, 2) == "ed") //Client ended game (surrendered)
                             {
                                 string winner_Name = newmessage.Substring(4);
 
@@ -460,12 +466,6 @@ namespace WindowsFormsApp2
             //Post-disconnect cleanup
             lock (clientLock)
             {
-                /*var itemsToRemove = clientDatabase.Where(kvp => kvp.Key.Equals(clientName));
-                foreach (var item in itemsToRemove)
-                { 
-                    NetworkStream val = item.Value;
-                    clientDatabase.TryRemove(clientName, out val);
-                }*/
                 clientDatabase.Remove(clientName);
 
                 listClients.BeginInvoke((MethodInvoker)delegate ()
@@ -476,6 +476,11 @@ namespace WindowsFormsApp2
 
             removeFrom_clientListPairs_DC(clientName);
 
+            if (recievedChallenge.ContainsKey(clientName))
+            {
+                removeFrom_recievedChallenge_DC(clientName);
+            }
+
             unavailableClients.Remove(clientName);
 
             clientList.Remove(clientTcp);
@@ -483,7 +488,7 @@ namespace WindowsFormsApp2
             clientTcp.Close();
         }
 
-
+        //Check values and keys in gameClientPairs; remove entry with clientName as a value
         private void removeFrom_clientListPairs(string clientName)
         {
             if (gameClientPairs.ContainsKey(clientName))
@@ -499,6 +504,7 @@ namespace WindowsFormsApp2
             }
         }
 
+        //Check values and keys in gameClientPairs; remove entry with clientName as a value, then notify the other client that clientName disconnected
         private void removeFrom_clientListPairs_DC(string clientName)
         {
             byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMdc\0");
@@ -540,6 +546,29 @@ namespace WindowsFormsApp2
                     unavailableClients.Remove(winner_Name);
                 }
             }
+        }
+
+        //Remove clientName from the recievedChallenge list, then notify the challenger that clientName disconnected
+        private void removeFrom_recievedChallenge_DC(string clientName)
+        {
+            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DX" + clientName + "\0");
+
+            string challenger_Name = recievedChallenge[clientName];
+            NetworkStream challenger_networkStream = (NetworkStream)clientDatabase[challenger_Name];
+
+            try
+            {
+                challenger_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                tbActivity.AppendText($"Client \"{clientName}\" is no longer connected, notified \"{challenger_Name}\".", Color.Black);
+            }
+            catch
+            {
+                tbActivity.AppendText($"Client \"{clientName}\" is no longer connected, failed to notify \"{challenger_Name}\".", Color.Purple);
+            }
+
+            unavailableClients.Remove(challenger_Name);
+
+            recievedChallenge.Remove(clientName);
         }
     }
 }

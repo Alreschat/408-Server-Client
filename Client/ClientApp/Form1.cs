@@ -210,7 +210,7 @@ namespace ClientApp
                                         {
                                             clickedChallenge = false;
 
-                                            if (playingGame == false)
+                                            if (playingGame == false) //Not playing game, button labeled "Challenge"
                                             {
                                                 string name = "";
                                                 if (listClients_selectedIndex >= 0 && listClients_selectedIndex < listClients.Items.Count)
@@ -246,7 +246,7 @@ namespace ClientApp
                                                     });
                                                 }
                                             }
-                                            else
+                                            else //Playing game, button labeled "Surrender"
                                             {
                                                 try
                                                 {
@@ -397,7 +397,7 @@ namespace ClientApp
                                                         {
                                                             string challengedName = newmessage.Substring(2);
                                                             //Selected client is no longer connected to server, they disconnected after last time Lobby List was requested
-                                                            tbActivity.AppendText("Client \"" + challengedName + "\" is no longer connected to server, refreshing Lobby List.", Color.Black);
+                                                            tbActivity.AppendText("Client \"" + challengedName + "\" is no longer connected to server, sending Lobby List request.", Color.Black);
 
                                                             clickedList = true; //Programatically "click" Lobby List button to refresh
                                                             requestedChallenge = false;
