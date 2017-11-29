@@ -379,7 +379,7 @@ namespace WindowsFormsApp2
                         else if (newmessage.Substring(0, 2) == "AC") //Client accepted challenge
                         {
                             string accepted_Name = newmessage.Substring(2);
-                            recievedChallenge.Remove(accepted_Name);
+                            recievedChallenge.Remove(clientName);
 
                             byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC" + clientName + "\0");
                             NetworkStream accepted_networkStream = (NetworkStream)clientDatabase[accepted_Name];
@@ -415,7 +415,7 @@ namespace WindowsFormsApp2
                             unavailableClients.Remove(clientName);
 
                             string declined_Name = newmessage.Substring(2);
-                            recievedChallenge.Remove(declined_Name);
+                            recievedChallenge.Remove(clientName);
 
                             byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DE" + clientName + "\0");
                             NetworkStream declined_networkStream = (NetworkStream)clientDatabase[declined_Name];
