@@ -16,7 +16,7 @@ namespace ClientApp
         private int serverPort;
         private string clientName;
         private TcpClient clientTcp;
-        public NetworkStream networkStream;
+        private NetworkStream networkStream;
         private Thread thrReceive;
         private bool terminating;
         private bool clickedList;
@@ -24,10 +24,9 @@ namespace ClientApp
         private bool clickedChallenge;
         private bool requestedChallenge;
         private bool playingGame;
-        public string playingAgainst;
+        private string playingAgainst;
         private int listClients_selectedIndex;
-        static Form2 gameform;
-        public System.Windows.Forms.RichTextBox textboxy;
+
 
         public Form1()
         {
@@ -54,7 +53,6 @@ namespace ClientApp
                 tbIP.ReadOnly = true;
                 tbPort.ReadOnly = true;
                 tbClient.ReadOnly = true;
-                textboxy = tbActivity;
 
                 try
                 {
@@ -124,7 +122,7 @@ namespace ClientApp
             }
         }
 
-        public void Receive()
+        private void Receive()
         {
             btStart.BeginInvoke((MethodInvoker)delegate ()
             {
@@ -212,7 +210,7 @@ namespace ClientApp
                                         {
                                             clickedChallenge = false;
 
-                                            if (playingGame == false)
+                                            if (playingGame == false) //Not playing game, button labeled "Challenge"
                                             {
                                                 string name = "";
                                                 if (listClients_selectedIndex >= 0 && listClients_selectedIndex < listClients.Items.Count)
@@ -248,11 +246,21 @@ namespace ClientApp
                                                     });
                                                 }
                                             }
-                                            else
+                                            else //Playing game, sent a guess
                                             {
-                                                try
+                                                if(Int32.Parse(guessBox.Text) > 100 || Int32.Parse(guessBox.Text) < 0)
                                                 {
-                                                    byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMed" + playingAgainst + "\0");
+                                                    tbActivity.AppendText("Only numbers between 0 and 100 are allowed!");
+                                                }
+                                                else
+                                                {
+                                                    byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GU" + playingAgainst + guessBox.Text + "\0");
+                                                    networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
+                                                    tbActivity.AppendText("Sent guess with the number" + guessBox.Text + ". Waiting for " + playingAgainst + " to guess.", Color.Black);
+                                                }
+                                                /*try
+                                                {
+                                                    byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GU" + playingAgainst + "\0");
                                                     networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
                                                     tbActivity.AppendText("Sent surrender message, opponent \"" + playingAgainst + "\" has won the game!", Color.Black);
                                                 }
@@ -261,13 +269,22 @@ namespace ClientApp
                                                     tbActivity.AppendText("Failed to send surrender message.", Color.Red);
                                                     terminating = true;
                                                 }
-
+                                                
                                                 playingGame = false;
                                                 challenge.BeginInvoke((MethodInvoker)delegate ()
                                                 {
                                                     challenge.Text = "Challenge";
                                                     challenge.Enabled = true;
                                                 });
+                                                nameText.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    nameText.Visible = false;
+                                                });
+                                                guessBox.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    guessBox.Visible = false;
+                                                });*/
+
                                             }
                                         }
 
@@ -330,15 +347,20 @@ namespace ClientApp
                                                                 bytesToWrite = ASCIIEncoding.ASCII.GetBytes("AC" + challengerName + "\0");
                                                                 networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                                                                 tbActivity.AppendText("Accepted challenge.", Color.Black);
-                                                                Application.EnableVisualStyles();
-                                                                Application.SetCompatibleTextRenderingDefault(false);
-                                                                gameform = new Form2(this);
-                                                                Application.Run(gameform);
+
                                                                 playingAgainst = challengerName;
                                                                 playingGame = true;
                                                                 challenge.BeginInvoke((MethodInvoker)delegate ()
                                                                 {
-                                                                    challenge.Enabled = false;
+                                                                    challenge.Text = "Send Guess";
+                                                                });
+                                                                nameText.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    nameText.Visible = true;
+                                                                });
+                                                                guessBox.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    guessBox.Visible = true;
                                                                 });
                                                             }
                                                             catch
@@ -377,13 +399,18 @@ namespace ClientApp
                                                             requestedChallenge = false;
                                                             playingAgainst = challengedName;
                                                             playingGame = true;
-                                                            Application.EnableVisualStyles();
-                                                            Application.SetCompatibleTextRenderingDefault(false);
-                                                            gameform = new Form2(this);
-                                                            Application.Run(gameform);
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
                                                             {
-                                                                challenge.Enabled = false;
+                                                                challenge.Text = "Send Guess";
+                                                                challenge.Enabled = true;
+                                                            });
+                                                            nameText.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                nameText.Visible = true;
+                                                            });
+                                                            guessBox.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                guessBox.Visible = true;
                                                             });
                                                         }
 
@@ -405,7 +432,7 @@ namespace ClientApp
                                                         {
                                                             string challengedName = newmessage.Substring(2);
                                                             //Selected client is no longer connected to server, they disconnected after last time Lobby List was requested
-                                                            tbActivity.AppendText("Client \"" + challengedName + "\" is no longer connected to server, refreshing Lobby List.", Color.Black);
+                                                            tbActivity.AppendText("Client \"" + challengedName + "\" is no longer connected to server, sending Lobby List request.", Color.Black);
 
                                                             clickedList = true; //Programatically "click" Lobby List button to refresh
                                                             requestedChallenge = false;
@@ -479,11 +506,17 @@ namespace ClientApp
                                                             tbActivity.AppendText("Opponent \"" + playingAgainst + "\" has surrendered, you have won the game!", Color.Black);
 
                                                             playingGame = false;
-                                                            gameform.Close();
-                                                            challenge.Enabled = true;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
                                                             {
                                                                 challenge.Text = "Challenge";
+                                                            });
+                                                            nameText.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                nameText.Visible = false;
+                                                            });
+                                                            guessBox.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                guessBox.Visible = false;
                                                             });
                                                         }
                                                         else if (newmessage == "GMdc")
@@ -581,7 +614,7 @@ namespace ClientApp
                 btStart.Text = "Start";
             });
             btStart_Click_isStop = false;
-
+            
             tbIP.BeginInvoke((MethodInvoker)delegate ()
             {
                 tbIP.ReadOnly = false;
@@ -614,9 +647,20 @@ namespace ClientApp
         {
             listClients_selectedIndex = listClients.SelectedIndex;
         }
-        public void enableChallenge()
+
+        private void guessBox_TextChanged(object sender, EventArgs e)
         {
-            challenge.Enabled = true;
+            if (System.Text.RegularExpressions.Regex.IsMatch(guessBox.Text, "  ^ [0-9]"))
+            {
+                guessBox.Text = "";
+            }
+        }
+        private void guessBox_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && (e.KeyChar != '.'))
+            {
+                e.Handled = true;
+            }
         }
     }
 }

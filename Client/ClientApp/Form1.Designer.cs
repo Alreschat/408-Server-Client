@@ -41,6 +41,8 @@
             this.label5 = new System.Windows.Forms.Label();
             this.listClients = new System.Windows.Forms.ListBox();
             this.challenge = new System.Windows.Forms.Button();
+            this.guessBox = new System.Windows.Forms.TextBox();
+            this.nameText = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // tbActivity
@@ -163,11 +165,34 @@
             this.challenge.UseVisualStyleBackColor = true;
             this.challenge.Click += new System.EventHandler(this.challenge_Click);
             // 
+            // guessBox
+            // 
+            this.guessBox.Location = new System.Drawing.Point(129, 366);
+            this.guessBox.Name = "guessBox";
+            this.guessBox.Size = new System.Drawing.Size(120, 20);
+            this.guessBox.TabIndex = 19;
+            this.guessBox.Text = "0";
+            this.guessBox.Visible = false;
+            this.guessBox.TextChanged += new System.EventHandler(this.guessBox_TextChanged);
+            this.guessBox.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.guessBox_KeyPress);
+            // 
+            // nameText
+            // 
+            this.nameText.AutoSize = true;
+            this.nameText.Location = new System.Drawing.Point(39, 369);
+            this.nameText.Name = "nameText";
+            this.nameText.Size = new System.Drawing.Size(47, 13);
+            this.nameText.TabIndex = 20;
+            this.nameText.Text = "Number:";
+            this.nameText.Visible = false;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(664, 374);
+            this.ClientSize = new System.Drawing.Size(664, 389);
+            this.Controls.Add(this.nameText);
+            this.Controls.Add(this.guessBox);
             this.Controls.Add(this.challenge);
             this.Controls.Add(this.listClients);
             this.Controls.Add(this.label5);
@@ -206,6 +231,8 @@
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.ListBox listClients;
         private System.Windows.Forms.Button challenge;
+        private System.Windows.Forms.TextBox guessBox;
+        private System.Windows.Forms.Label nameText;
     }
 }
 
