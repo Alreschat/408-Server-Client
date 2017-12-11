@@ -295,6 +295,7 @@ namespace ClientApp
 
                                         if (clickedGuess == true && terminating == false)
                                         {
+                                            //Send guess to server
                                             try
                                             {
                                                 byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMgu" + tbGuess.Text + "\0");

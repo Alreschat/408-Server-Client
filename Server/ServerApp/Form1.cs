@@ -747,6 +747,7 @@ namespace WindowsFormsApp2
                     winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                     tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
 
+                    //Increment global score of opponent if they are still connected
                     lock (clientLock)
                     {
                         if (clientGlobalScore.ContainsKey(winner_Name))
@@ -789,6 +790,7 @@ namespace WindowsFormsApp2
                         winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                         tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
 
+                        //Increment global score of opponent if they are still connected
                         lock (clientLock)
                         {
                             if (clientGlobalScore.ContainsKey(winner_Name))
@@ -846,6 +848,7 @@ namespace WindowsFormsApp2
             recievedChallenge.Remove(clientName);
         }
 
+        //Returns opponent name for the given client name, blank if no opponent exists
         private string getOpponentName(string clientName)
         {
             string opponentName;
