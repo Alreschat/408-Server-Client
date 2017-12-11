@@ -3,3 +3,5 @@ All relevant activity is written into the "Activity/Messages" RichTextBox, along
 When Client recieves a challenge, a Yes/No TextBox pops up; other buttons are disabled while this TextBox is visible.
 
 Client form's "Challenge" button is replaced with a "Surrender" button while playing a game.
+
+The Client form's guess textbox and button are only visible while playing a game.
