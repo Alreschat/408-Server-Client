@@ -266,7 +266,24 @@ namespace ClientApp
                                                     terminating = true;
                                                 }
 
-                                                //TODO: Disable GUI for game if currently in guessing phase
+                                                //Disable guessing game
+                                                this.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    this.Height = 400;
+                                                });
+                                                btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    btGuess.Visible = false;
+                                                });
+                                                tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    tbGuess.Visible = false;
+                                                });
+                                                labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                {
+                                                    labelNumber.Visible = true;
+                                                });
+
                                                 playingGame = false;
                                                 challenge.BeginInvoke((MethodInvoker)delegate ()
                                                 {
@@ -280,9 +297,9 @@ namespace ClientApp
                                         {
                                             try
                                             {
-                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMgu" + ??? + "\0"); //TODO: Replace "???" with text in GUI guess textbox
+                                                byte[] list_bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMgu" + tbGuess.Text + "\0");
                                                 networkStream.Write(list_bytesToWrite, 0, list_bytesToWrite.Length);
-                                                tbActivity.AppendText("Sent guess to server.", Color.Black);
+                                                tbActivity.AppendText("Sent guess with the number " + tbGuess.Text + ".", Color.Black);
                                             }
                                             catch
                                             {
@@ -359,6 +376,27 @@ namespace ClientApp
                                                                 {
                                                                     challenge.Text = "Surrender";
                                                                 });
+
+                                                                //Enable guessing game
+                                                                btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    btGuess.Visible = true;
+                                                                    btGuess.Enabled = true;
+                                                                });
+                                                                tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    tbGuess.Text = "";
+                                                                    tbGuess.Visible = true;
+                                                                    tbGuess.Enabled = true;
+                                                                });
+                                                                labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    labelNumber.Visible = true;
+                                                                });
+                                                                this.BeginInvoke((MethodInvoker)delegate ()
+                                                                {
+                                                                    this.Height = 435;
+                                                                });
                                                             }
                                                             catch
                                                             {
@@ -400,6 +438,27 @@ namespace ClientApp
                                                             {
                                                                 challenge.Text = "Surrender";
                                                                 challenge.Enabled = true;
+                                                            });
+
+                                                            //Enable guessing game
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = true;
+                                                                btGuess.Enabled = true;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Text = "";
+                                                                tbGuess.Visible = true;
+                                                                tbGuess.Enabled = true;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 435;
                                                             });
                                                         }
 
@@ -494,31 +553,83 @@ namespace ClientApp
                                                             //Opponent surrendered
                                                             tbActivity.AppendText("Opponent \"" + playingAgainst + "\" has surrendered, you have won the game!", Color.Black);
 
+                                                            //Disable guessing game
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 400;
+                                                            });
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = false;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Visible = false;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
+
                                                             sentGuess = false;
                                                             playingGame = false;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
                                                             {
                                                                 challenge.Text = "Challenge";
                                                             });
-                                                            //TODO: Disable GUI for game if currently in guessing phase
                                                         }
                                                         else if (newmessage == "GMdc")
                                                         {
                                                             //Opponent disconnected during game
                                                             tbActivity.AppendText("Opponent \"" + playingAgainst + "\" disconnected, you have won the game!.", Color.Black);
 
+                                                            //Disable guessing game
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 400;
+                                                            });
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = false;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Visible = false;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
+
                                                             sentGuess = false;
                                                             playingGame = false;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
                                                             {
                                                                 challenge.Text = "Challenge";
                                                             });
-                                                            //TODO: Disable GUI for game if currently in guessing phase
                                                         }
                                                         else if (newmessage == "GMch")
                                                         {
                                                             //Opponent disconnected after sending challenge
                                                             tbActivity.AppendText("Opponent \"" + playingAgainst + "\" disconnected after sending the challenge.", Color.Black);
+
+                                                            //Disable guessing game
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 400;
+                                                            });
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = false;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Visible = false;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
 
                                                             playingGame = false;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
@@ -526,37 +637,93 @@ namespace ClientApp
                                                                 challenge.Text = "Challenge";
                                                             });
                                                         }
-                                                        else if (newmessage == "GMgu")
-                                                        {
-                                                            //Server prompted client to make guess
-                                                            //TODO: Enable GUI for game
-                                                        }
                                                         else if (sentGuess = true && newmessage.Substring(2, 2) == "wr")
                                                         {
                                                             //Won round
-                                                            int opponentGuess = int.Parse(newmessage.Substring(4));
-                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", you have won the round.", Color.Black);
+                                                            int dashIndex = newmessage.LastIndexOf("-");
+                                                            int lenOpponentGuess = newmessage.Substring(dashIndex + 1).Length;
+                                                            int opponentGuess = int.Parse(newmessage.Substring(dashIndex + 1));
+                                                            int randomNumber = int.Parse(newmessage.Substring(4, newmessage.Length - lenOpponentGuess - 5));
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", the number was: " + randomNumber + ", you have won the round.", Color.Black);
                                                             sentGuess = false;
+
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Enabled = true;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Text = "";
+                                                                tbGuess.Enabled = true;
+                                                            });
                                                         }
                                                         else if (sentGuess = true && newmessage.Substring(2, 2) == "lr")
                                                         {
                                                             //Lost round
-                                                            int opponentGuess = int.Parse(newmessage.Substring(4));
-                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", you have lost the round.", Color.Black);
+                                                            int dashIndex = newmessage.LastIndexOf("-");
+                                                            int lenOpponentGuess = newmessage.Substring(dashIndex + 1).Length;
+                                                            int opponentGuess = int.Parse(newmessage.Substring(dashIndex + 1));
+                                                            int randomNumber = int.Parse(newmessage.Substring(4, newmessage.Length - lenOpponentGuess - 5));
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", the number was: " + randomNumber + ", you have lost the round.", Color.Black);
                                                             sentGuess = false;
+
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Enabled = true;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Text = "";
+                                                                tbGuess.Enabled = true;
+                                                            });
                                                         }
                                                         else if (sentGuess = true && newmessage.Substring(2, 2) == "tr")
                                                         {
                                                             //Tie round
-                                                            int opponentGuess = int.Parse(newmessage.Substring(4));
-                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" also guessed " + opponentGuess + ", the round is a tie.", Color.Black);
+                                                            int dashIndex = newmessage.LastIndexOf("-");
+                                                            int lenOpponentGuess = newmessage.Substring(dashIndex + 1).Length;
+                                                            int opponentGuess = int.Parse(newmessage.Substring(dashIndex + 1));
+                                                            int randomNumber = int.Parse(newmessage.Substring(4, newmessage.Length - lenOpponentGuess - 5));
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" also guessed " + opponentGuess + ", the number was: " + randomNumber + ", the round is a tie.", Color.Black);
                                                             sentGuess = false;
+
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Enabled = true;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Text = "";
+                                                                tbGuess.Enabled = true;
+                                                            });
                                                         }
                                                         else if (sentGuess = true && newmessage.Substring(2, 2) == "wg")
                                                         {
                                                             //Won game
-                                                            int opponentGuess = int.Parse(newmessage.Substring(4));
-                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", you have won the game!.", Color.Black);
+                                                            int dashIndex = newmessage.LastIndexOf("-");
+                                                            int lenOpponentGuess = newmessage.Substring(dashIndex + 1).Length;
+                                                            int opponentGuess = int.Parse(newmessage.Substring(dashIndex + 1));
+                                                            int randomNumber = int.Parse(newmessage.Substring(4, newmessage.Length - lenOpponentGuess - 5));
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", the number was: " + randomNumber + ", you have won the game!", Color.Black);
+
+                                                            //Disable guessing game
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 400;
+                                                            });
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = false;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Visible = false;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
+
                                                             sentGuess = false;
                                                             playingGame = false;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
@@ -567,8 +734,30 @@ namespace ClientApp
                                                         else if (sentGuess = true && newmessage.Substring(2, 2) == "lg")
                                                         {
                                                             //Lost game
-                                                            int opponentGuess = int.Parse(newmessage.Substring(4));
-                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", you have lost the game!.", Color.Black);
+                                                            int dashIndex = newmessage.LastIndexOf("-");
+                                                            int lenOpponentGuess = newmessage.Substring(dashIndex + 1).Length;
+                                                            int opponentGuess = int.Parse(newmessage.Substring(dashIndex + 1));
+                                                            int randomNumber = int.Parse(newmessage.Substring(4, newmessage.Length - lenOpponentGuess - 5));
+                                                            tbActivity.AppendText("Opponent \"" + playingAgainst + "\" guessed " + opponentGuess + ", the number was: " + randomNumber + ", you have lost the game!", Color.Black);
+
+                                                            //Disable guessing game
+                                                            this.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                this.Height = 400;
+                                                            });
+                                                            btGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                btGuess.Visible = false;
+                                                            });
+                                                            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                tbGuess.Visible = false;
+                                                            });
+                                                            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+                                                            {
+                                                                labelNumber.Visible = true;
+                                                            });
+
                                                             sentGuess = false;
                                                             playingGame = false;
                                                             challenge.BeginInvoke((MethodInvoker)delegate ()
@@ -631,7 +820,23 @@ namespace ClientApp
                 btRequest.Enabled = false;
             });
 
-            //TODO: Disable GUI for game if currently in guessing phase
+            //Disable guessing game if currently active
+            this.BeginInvoke((MethodInvoker)delegate ()
+            {
+                this.Height = 400;
+            });
+            btGuess.BeginInvoke((MethodInvoker)delegate ()
+            {
+                btGuess.Visible = false;
+            });
+            tbGuess.BeginInvoke((MethodInvoker)delegate ()
+            {
+                tbGuess.Visible = false;
+            });
+            labelNumber.BeginInvoke((MethodInvoker)delegate ()
+            {
+                labelNumber.Visible = true;
+            });
 
             sentGuess = false;
             clickedGuess = false;
@@ -682,11 +887,37 @@ namespace ClientApp
             clickedChallenge = true; //Set variable to true so that the "if(clickedChallenge)" code block executes
         }
 
-        //TODO: When guess button is clicked in GUI; first check whether the text in the guess textbox is an integer between 1 and 100, if so: disable GUI for game, and set clickedGuess = true;
-
         private void listClients_SelectedIndexChanged(object sender, EventArgs e)
         {
             listClients_selectedIndex = listClients.SelectedIndex;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            int guess;
+
+            try
+            {
+                guess = Convert.ToInt32(tbGuess.Text);
+            }
+            catch
+            {
+                tbActivity.AppendText("Please enter a properly formatted integer.", Color.Red);
+                return;
+            }
+
+            if (guess < 1 || guess > 100)
+            {
+                tbActivity.AppendText("Only numbers between 1 and 100 are allowed!", Color.Red);
+                return;
+            }
+            else
+            {
+                tbActivity.AppendText("Attempting to send your guess: " + tbGuess.Text, Color.Black);
+                btGuess.Enabled = false;
+                tbGuess.Enabled = false;
+                clickedGuess = true;
+            }
         }
     }
 }

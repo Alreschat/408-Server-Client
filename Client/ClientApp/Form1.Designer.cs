@@ -41,6 +41,9 @@
             this.label5 = new System.Windows.Forms.Label();
             this.listClients = new System.Windows.Forms.ListBox();
             this.challenge = new System.Windows.Forms.Button();
+            this.labelNumber = new System.Windows.Forms.Label();
+            this.tbGuess = new System.Windows.Forms.TextBox();
+            this.btGuess = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // tbActivity
@@ -65,6 +68,7 @@
             // tbIP
             // 
             this.tbIP.Location = new System.Drawing.Point(16, 29);
+            this.tbIP.MaxLength = 20;
             this.tbIP.Name = "tbIP";
             this.tbIP.Size = new System.Drawing.Size(120, 20);
             this.tbIP.TabIndex = 3;
@@ -82,6 +86,7 @@
             // tbPort
             // 
             this.tbPort.Location = new System.Drawing.Point(169, 29);
+            this.tbPort.MaxLength = 10;
             this.tbPort.Name = "tbPort";
             this.tbPort.Size = new System.Drawing.Size(80, 20);
             this.tbPort.TabIndex = 5;
@@ -99,6 +104,7 @@
             // tbClient
             // 
             this.tbClient.Location = new System.Drawing.Point(16, 77);
+            this.tbClient.MaxLength = 50;
             this.tbClient.Name = "tbClient";
             this.tbClient.Size = new System.Drawing.Size(120, 20);
             this.tbClient.TabIndex = 7;
@@ -163,11 +169,43 @@
             this.challenge.UseVisualStyleBackColor = true;
             this.challenge.Click += new System.EventHandler(this.challenge_Click);
             // 
+            // labelNumber
+            // 
+            this.labelNumber.Location = new System.Drawing.Point(24, 373);
+            this.labelNumber.Name = "labelNumber";
+            this.labelNumber.Size = new System.Drawing.Size(47, 13);
+            this.labelNumber.TabIndex = 0;
+            this.labelNumber.Text = "Number:";
+            this.labelNumber.Visible = false;
+            // 
+            // tbGuess
+            // 
+            this.tbGuess.Location = new System.Drawing.Point(82, 370);
+            this.tbGuess.MaxLength = 3;
+            this.tbGuess.Name = "tbGuess";
+            this.tbGuess.Size = new System.Drawing.Size(54, 20);
+            this.tbGuess.TabIndex = 19;
+            this.tbGuess.Visible = false;
+            // 
+            // btGuess
+            // 
+            this.btGuess.Location = new System.Drawing.Point(153, 367);
+            this.btGuess.Name = "btGuess";
+            this.btGuess.Size = new System.Drawing.Size(79, 25);
+            this.btGuess.TabIndex = 20;
+            this.btGuess.Text = "Make Guess";
+            this.btGuess.UseVisualStyleBackColor = true;
+            this.btGuess.Visible = false;
+            this.btGuess.Click += new System.EventHandler(this.button1_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(664, 374);
+            this.ClientSize = new System.Drawing.Size(664, 362);
+            this.Controls.Add(this.btGuess);
+            this.Controls.Add(this.tbGuess);
+            this.Controls.Add(this.labelNumber);
             this.Controls.Add(this.challenge);
             this.Controls.Add(this.listClients);
             this.Controls.Add(this.label5);
@@ -206,6 +244,9 @@
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.ListBox listClients;
         private System.Windows.Forms.Button challenge;
+        private System.Windows.Forms.Label labelNumber;
+        private System.Windows.Forms.TextBox tbGuess;
+        private System.Windows.Forms.Button btGuess;
     }
 }
 

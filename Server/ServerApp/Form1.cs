@@ -12,6 +12,7 @@ using RichTextBoxExtensions;
 
 namespace WindowsFormsApp2
 {
+
     public partial class Form1 : Form
     {
         private bool accept;
@@ -20,10 +21,14 @@ namespace WindowsFormsApp2
         private TcpListener tcpListener;
         private OrderedDictionary clientDatabase = new OrderedDictionary(); //Stores pairs of Client names and their corresponding TcpClients; ordered so first Client added is at the top
         private List<TcpClient> clientList = new List<TcpClient>();
-        private Object clientLock = new Object(); //Lock to ensure only one thread accesses shared structures at any given time
+        static private Object clientLock = new Object(); //Lock to ensure only one thread accesses shared structures at any given time
         private HashSet<string> unavailableClients = new HashSet<string>();
         private Dictionary<string, string> gameClientPairs = new Dictionary<string, string>(); //Stores pairs of 2 Client names for every ongoing game
+        private Dictionary<string, int> clientGuessPairs = new Dictionary<string, int>(); //Stores pairs of Client names with the guess that they made
+        private Dictionary<string, int> clientGlobalScore = new Dictionary<string, int>(); //Stores pairs of Client names with how many games they have won in total
+        private Dictionary<string, int> clientRoundScore = new Dictionary<string, int>(); //Stores pairs of Client names with how many rounds they have won in their current game
         private Dictionary<string, string> recievedChallenge = new Dictionary<string, string>(); //Stores clients who have recieved a challenge but not yet answered, notify challenger if they disconnect
+        private Random randGen = new Random();
 
         public Form1()
         {
@@ -192,7 +197,7 @@ namespace WindowsFormsApp2
                     bool uniqueName = true;
                     lock (clientLock)
                     {
-                        if (listClients.FindStringExact(name_substring) != ListBox.NoMatches) //Check if name is already in use
+                        if (clientDatabase.Contains(name_substring)) //Check if name is already in use
                         {
                             uniqueName = false;
                         }
@@ -229,10 +234,11 @@ namespace WindowsFormsApp2
                             lock (clientLock)
                             {
                                 clientDatabase.Add(clientName, networkStream);
+                                clientGlobalScore.Add(clientName, 0);
 
                                 listClients.BeginInvoke((MethodInvoker)delegate ()
                                 {
-                                    listClients.Items.Add(clientName);
+                                    listClients.Items.Add(clientName + "-0");
                                 });
                             }
                         }
@@ -244,6 +250,9 @@ namespace WindowsFormsApp2
                     }
                 }
             }
+            
+            string opponentName = "";
+            bool playRound = false;
 
             //If name is unique, establish connection
             while (!terminating)
@@ -280,12 +289,12 @@ namespace WindowsFormsApp2
                                 String[] clientNames = new String[databaseSize];
                                 clientDatabase.Keys.CopyTo(clientNames, 0);
 
-                                textList = "LS" + clientNames[0];
+                                textList = "LS" + clientNames[0] + "-" + clientGlobalScore[clientNames[0]].ToString();
 
                                 int listSize = clientNames.Length;
                                 for (int ctr = 1; ctr < listSize; ctr++)
                                 {
-                                    textList = textList + "\n" + clientNames[ctr]; //Seperate names using newline as it cannot be a character in a client's name
+                                    textList = textList + "\n" + clientNames[ctr] + "-" + clientGlobalScore[clientNames[ctr]].ToString(); //Seperate names using newline as it cannot be a character in a client's name
                                 }
                                 textList = textList + "\0"; //NUL is always the final character of the newest message
                                                             ////tbActivity.AppendText("List: " + textList, Color.YellowGreen);
@@ -326,7 +335,7 @@ namespace WindowsFormsApp2
                                     terminating = true;
                                 }
                             }
-                            else if(!clientDatabase.Contains(challenged_Name)) //Challenged client is no longer connected to server
+                            else if (!clientDatabase.Contains(challenged_Name)) //Challenged client is no longer connected to server
                             {
                                 byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("DX" + challenged_Name + "\0");
                                 try
@@ -405,7 +414,7 @@ namespace WindowsFormsApp2
                                     tbActivity.AppendText($"Client \"{accepted_Name}\" disconnected after sending invite, failed to send notice to \"{clientName}\".", Color.Purple);
                                     terminating = true;
                                 }
-                                
+
                                 unavailableClients.Remove(clientName);
                                 unavailableClients.Remove(accepted_Name);
                             }
@@ -448,11 +457,55 @@ namespace WindowsFormsApp2
                                 {
                                     tbActivity.AppendText($"\"{clientName}\" has surrendered, but failed to notify \"{winner_Name}\" that they won.", Color.Purple);
                                 }
+                                
+                                //Round score and guess clean-up, and global score increment
+                                if (clientGuessPairs.ContainsKey(clientName))
+                                {
+                                    clientGuessPairs.Remove(clientName);
+                                }
+                                if (clientGuessPairs.ContainsKey(winner_Name))
+                                {
+                                    clientGuessPairs.Remove(winner_Name);
+                                }
+                                if (clientRoundScore.ContainsKey(clientName))
+                                {
+                                    clientRoundScore.Remove(clientName);
+                                }
+                                if (clientRoundScore.ContainsKey(winner_Name))
+                                {
+                                    clientRoundScore.Remove(winner_Name);
+                                }
+
+                                lock (clientLock)
+                                {
+                                    int itemIndex = listClients.FindStringExact(winner_Name + "-" + clientGlobalScore[winner_Name]);
+                                    clientGlobalScore[winner_Name] += 1;
+                                    listClients.BeginInvoke((MethodInvoker)delegate ()
+                                    {
+                                        listClients.Items[itemIndex] = winner_Name + "-" + clientGlobalScore[winner_Name];
+                                    });
+                                }
 
                                 removeFrom_clientListPairs(clientName);
-
                                 unavailableClients.Remove(clientName);
                                 unavailableClients.Remove(winner_Name);
+                                
+                                opponentName = "";
+                            }
+
+                            if (newmessage.Length > 4 && newmessage.Substring(2, 2) == "gu") //Client sent guess
+                            {
+                                int clientGuess = Convert.ToInt32(newmessage.Substring(4));
+
+                                tbActivity.AppendText("Client \"" + clientName + "\" has guessed " + clientGuess + ".", Color.Blue);
+                                
+                                opponentName = getOpponentName(clientName);
+                                if (clientGuessPairs.ContainsKey(opponentName))
+                                {
+                                    playRound = true;
+                                }
+
+                                clientGuessPairs.Add(clientName, clientGuess);
                             }
                         }
                     }
@@ -462,25 +515,200 @@ namespace WindowsFormsApp2
                     tbActivity.AppendText("Client \"" + clientName + "\" has disconnected.", Color.Purple);
                     terminating = true;
                 }
+
+                if (playRound == true)
+                {
+                    int clientGuess = clientGuessPairs[clientName];
+                    int opponentGuess = clientGuessPairs[opponentName];
+                    
+                    int randomNumber = randGen.Next(1, 101); //Generate a number between 1-100
+                    int clientDifference = Math.Abs(clientGuess - randomNumber);
+                    int opponentDifference = Math.Abs(opponentGuess - randomNumber);
+
+                    if (clientDifference < opponentDifference)
+                    {
+                        //Client wins the round
+                        if (clientRoundScore.ContainsKey(clientName) == true)
+                        {
+                            //2nd round client won, client wins the game
+                            tbActivity.AppendText($"The random number was {randomNumber}, \"{clientName}\" has won the game!", Color.Black);
+
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMwg" + randomNumber + "-" + opponentGuess + "\0");
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                            
+                            bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMlg" + randomNumber + "-" + clientGuess + "\0");
+                            NetworkStream opponent_networkStream = (NetworkStream)clientDatabase[opponentName];
+                            opponent_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                            clientGuessPairs.Remove(clientName);
+                            clientGuessPairs.Remove(opponentName);
+
+                            clientRoundScore.Remove(clientName);
+                            if (clientRoundScore.ContainsKey(opponentName))
+                            {
+                                clientRoundScore.Remove(opponentName);
+                            }
+
+                            lock (clientLock)
+                            {
+                                int itemIndex = listClients.FindStringExact(clientName + "-" + clientGlobalScore[clientName]);
+                                clientGlobalScore[clientName] += 1;
+                                listClients.BeginInvoke((MethodInvoker)delegate ()
+                                {
+                                    listClients.Items[itemIndex] = clientName + "-" + clientGlobalScore[clientName];
+                                });
+                            }
+
+                            removeFrom_clientListPairs(clientName);
+                            unavailableClients.Remove(clientName);
+                            unavailableClients.Remove(opponentName);
+
+                            opponentName = "";
+                        }
+                        else
+                        {
+                            //1st round client won
+                            tbActivity.AppendText($"The random number was {randomNumber}, \"{clientName}\" has won their first round.", Color.Black);
+
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMwr" + randomNumber + "-" + opponentGuess + "\0");
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                            bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMlr" + randomNumber + "-" + clientGuess + "\0");
+                            NetworkStream opponent_networkStream = (NetworkStream)clientDatabase[opponentName];
+                            opponent_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                            
+                            clientGuessPairs.Remove(clientName);
+                            clientGuessPairs.Remove(opponentName);
+
+                            clientRoundScore.Add(clientName, 1);
+                        }
+                    }
+                    else if (clientDifference > opponentDifference)
+                    {
+                        //Opponent wins the round
+                        if (clientRoundScore.ContainsKey(opponentName) == true)
+                        {
+                            //2nd round opponent won, opponent wins the game
+                            string oppName = opponentName;
+                            tbActivity.AppendText($"The random number was {randomNumber}, \"{oppName}\" has won the game!", Color.Black);
+
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMlg" + randomNumber + "-" + opponentGuess + "\0");
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                            bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMwg" + randomNumber + "-" + clientGuess + "\0");
+                            NetworkStream opponent_networkStream = (NetworkStream)clientDatabase[opponentName];
+                            opponent_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                            clientGuessPairs.Remove(clientName);
+                            clientGuessPairs.Remove(opponentName);
+
+                            clientRoundScore.Remove(opponentName);
+                            if (clientRoundScore.ContainsKey(clientName))
+                            {
+                                clientRoundScore.Remove(clientName);
+                            }
+
+                            lock (clientLock)
+                            {
+                                int itemIndex = listClients.FindStringExact(opponentName + "-" + clientGlobalScore[opponentName]);
+                                clientGlobalScore[opponentName] += 1;
+                                listClients.BeginInvoke((MethodInvoker)delegate ()
+                                {
+                                    listClients.Items[itemIndex] = oppName + "-" + clientGlobalScore[oppName];
+                                });
+                            }
+
+                            removeFrom_clientListPairs(clientName);
+                            unavailableClients.Remove(clientName);
+                            unavailableClients.Remove(opponentName);
+
+                            opponentName = "";
+                        }
+                        else
+                        {
+                            //1st round opponent won
+                            string oppName = opponentName;
+                            tbActivity.AppendText($"The random number was {randomNumber}, \"{oppName}\" has won their first round.", Color.Black);
+
+                            byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMlr" + randomNumber + "-" + opponentGuess + "\0");
+                            networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                            bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMwr" + randomNumber + "-" + clientGuess + "\0");
+                            NetworkStream opponent_networkStream = (NetworkStream)clientDatabase[opponentName];
+                            opponent_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+                            
+                            clientGuessPairs.Remove(clientName);
+                            clientGuessPairs.Remove(opponentName);
+
+                            clientRoundScore.Add(opponentName, 1);
+                        }
+                    }
+                    else
+                    {
+                        //Tie
+                        tbActivity.AppendText($"The random number was {randomNumber}, the round is a tie.", Color.Black);
+                        byte[] bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMtr" + randomNumber + "-" + opponentGuess + "\0");
+                        networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                        bytesToWrite = ASCIIEncoding.ASCII.GetBytes("GMtr" + randomNumber + "-" + clientGuess + "\0");
+                        NetworkStream opponent_networkStream = (NetworkStream)clientDatabase[opponentName];
+                        opponent_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
+
+                        clientGuessPairs.Remove(clientName);
+                        clientGuessPairs.Remove(opponentName);
+                    }
+
+                    playRound = false;
+                }
             }
             //Post-disconnect cleanup
+
+            //Round score and guess clean-up, and global score increment
+            if (gameClientPairs.ContainsKey(clientName) || gameClientPairs.ContainsValue(clientName))
+            {
+                opponentName = getOpponentName(clientName);
+
+                if (clientGuessPairs.ContainsKey(clientName))
+                {
+                    clientGuessPairs.Remove(clientName);
+                }
+                if (clientGuessPairs.ContainsKey(opponentName))
+                {
+                    clientGuessPairs.Remove(opponentName);
+                }
+                if (clientRoundScore.ContainsKey(clientName))
+                {
+                    clientRoundScore.Remove(clientName);
+                }
+                if (clientRoundScore.ContainsKey(opponentName))
+                {
+                    clientRoundScore.Remove(opponentName);
+                }
+            }
+            
             lock (clientLock)
             {
                 clientDatabase.Remove(clientName);
 
-                listClients.BeginInvoke((MethodInvoker)delegate ()
+                if (clientGlobalScore.ContainsKey(clientName))
                 {
-                    listClients.Items.Remove(clientName);
-                });
-            }
+                    string nameText = clientName + "-" + clientGlobalScore[clientName].ToString();
 
-            removeFrom_clientListPairs_DC(clientName);
+                    listClients.BeginInvoke((MethodInvoker)delegate ()
+                    {
+                        listClients.Items.Remove(nameText);
+                    });
+                }
+
+                clientGlobalScore.Remove(clientName);
+                removeFrom_clientListPairs_DC(clientName);
+            }
 
             if (recievedChallenge.ContainsKey(clientName))
             {
                 removeFrom_recievedChallenge_DC(clientName);
             }
-
+            
             unavailableClients.Remove(clientName);
 
             clientList.Remove(clientTcp);
@@ -513,10 +741,34 @@ namespace WindowsFormsApp2
             {
                 string winner_Name = gameClientPairs[clientName];
                 NetworkStream winner_networkStream = (NetworkStream)clientDatabase[winner_Name];
+
                 try
                 {
                     winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                     tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
+
+                    lock (clientLock)
+                    {
+                        if (clientGlobalScore.ContainsKey(winner_Name))
+                        {
+                            int score = clientGlobalScore[winner_Name];
+                            clientGlobalScore[winner_Name] += 1;
+
+                            string scoreString = score.ToString();
+
+                            listClients.BeginInvoke((MethodInvoker)delegate ()
+                            {
+                                if (listClients.FindStringExact(winner_Name + "-" + scoreString) != ListBox.NoMatches)
+                                {
+                                    int itemIndex = listClients.FindStringExact(winner_Name + "-" + scoreString);
+                                    if (itemIndex != -1)
+                                    {
+                                        listClients.Items[itemIndex] = winner_Name + "-" + (score+1).ToString();
+                                    }
+                                }
+                            });
+                        }
+                    }
                 }
                 catch
                 {
@@ -536,6 +788,29 @@ namespace WindowsFormsApp2
                     {
                         winner_networkStream.Write(bytesToWrite, 0, bytesToWrite.Length);
                         tbActivity.AppendText($"\"{clientName}\" has disconnected, \"{winner_Name}\" is the winner!", Color.Black);
+
+                        lock (clientLock)
+                        {
+                            if (clientGlobalScore.ContainsKey(winner_Name))
+                            {
+                                int score = clientGlobalScore[winner_Name];
+                                clientGlobalScore[winner_Name] += 1;
+
+                                string scoreString = score.ToString();
+
+                                listClients.BeginInvoke((MethodInvoker)delegate ()
+                                {
+                                    if (listClients.FindStringExact(winner_Name + "-" + scoreString) != ListBox.NoMatches)
+                                    {
+                                        int itemIndex = listClients.FindStringExact(winner_Name + "-" + scoreString);
+                                        if (itemIndex != -1)
+                                        {
+                                            listClients.Items[itemIndex] = winner_Name + "-" + (score + 1).ToString();
+                                        }
+                                    }
+                                });
+                            }
+                        }
                     }
                     catch
                     {
@@ -569,6 +844,27 @@ namespace WindowsFormsApp2
             unavailableClients.Remove(challenger_Name);
 
             recievedChallenge.Remove(clientName);
+        }
+
+        private string getOpponentName(string clientName)
+        {
+            string opponentName;
+
+            if (!gameClientPairs.ContainsKey(clientName))
+            {
+                foreach (var clientItem in gameClientPairs.Where(kvp => kvp.Value == clientName).Take(1).ToList())
+                {
+                    opponentName = clientItem.Key;
+                    return opponentName;
+                }
+            }
+            else if (gameClientPairs.ContainsKey(clientName))
+            {
+                opponentName = gameClientPairs[clientName];
+                return opponentName;
+            }
+
+            return "";
         }
     }
 }
